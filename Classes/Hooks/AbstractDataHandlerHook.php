@@ -74,8 +74,9 @@ abstract class AbstractDataHandlerHook
             'effectivePid' => $record['pid'],
             'tableName' => 'tt_content',
             'vanillaUid' => (int)$record['uid'],
+            'request' => $GLOBALS['TYPO3_REQUEST'],
         ];
-        $result = $formDataCompiler->compile($formDataCompilerInput);
+        $result = $formDataCompiler->compile($formDataCompilerInput, $formDataGroup);
 
         $allowedConfiguration = array_intersect_key($columnConfiguration['allowed.'] ?? [], $result['processedTca']['columns']);
         foreach ($allowedConfiguration as $field => $value) {
