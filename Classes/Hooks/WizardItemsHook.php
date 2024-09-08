@@ -18,12 +18,14 @@ namespace IchHabRecht\ContentDefender\Hooks;
  */
 
 use IchHabRecht\ContentDefender\BackendLayout\BackendLayoutConfiguration;
+use SaschaEgerer\PhpstanTypo3\Rule\GeneralUtilityMakeInstancePrivateServiceRule;
 use TYPO3\CMS\Backend\Controller\ContentElement\NewContentElementController;
 use TYPO3\CMS\Backend\Controller\Event\ModifyNewContentElementWizardItemsEvent;
 use TYPO3\CMS\Backend\Wizard\NewContentElementWizardHookInterface;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class WizardItemsHook implements NewContentElementWizardHookInterface
+class WizardItemsHook
 {
     public function modifyWizardItems(ModifyNewContentElementWizardItemsEvent $event)
     {
@@ -114,14 +116,19 @@ class WizardItemsHook implements NewContentElementWizardHookInterface
      */
     protected function removeDisallowedValues(array $wizardItems, $field, array $values, $allowed = true)
     {
+        if ((GeneralUtility::makeInstance(Typo3Version::class))->getMajorVersion() > 12) {
+            $configurationKey = 'defaultValues';
+        } else {
+            $configurationKey = 'tt_content_defValues';
+        }
         foreach ($wizardItems as $key => $configuration) {
             $keyParts = explode('_', $key, 2);
-            if (count($keyParts) === 1 || !isset($configuration['tt_content_defValues'][$field])) {
+            if (count($keyParts) === 1 || !isset($configuration[$configurationKey][$field])) {
                 continue;
             }
 
-            if (($allowed && !in_array($configuration['tt_content_defValues'][$field], $values))
-                || (!$allowed && in_array($configuration['tt_content_defValues'][$field], $values))
+            if (($allowed && !in_array($configuration[$configurationKey][$field], $values))
+                || (!$allowed && in_array($configuration[$configurationKey][$field], $values))
             ) {
                 unset($wizardItems[$key]);
                 continue;
