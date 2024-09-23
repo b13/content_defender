@@ -20,6 +20,10 @@ namespace IchHabRecht\ContentDefender\Hooks;
 use IchHabRecht\ContentDefender\BackendLayout\BackendLayoutConfiguration;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Information\Typo3Version;
+use TYPO3\CMS\Core\Messaging\FlashMessage;
+use TYPO3\CMS\Core\Messaging\FlashMessageService;
+use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class CmdmapDataHandlerHook extends AbstractDataHandlerHook
@@ -44,14 +48,30 @@ class CmdmapDataHandlerHook extends AbstractDataHandlerHook
                 $currentRecord = BackendUtility::getRecord('tt_content', $id);
 
                 if ($command === 'move') {
-                    // New colPos is passed as datamap array and already processed in processDatamap_beforeStart
-                    $data = isset($dataHandler->datamap['tt_content'][$id])
-                        ? $dataHandler->datamap : GeneralUtility::_GP('data');
-                    if (isset($data['tt_content'][$id])) {
-                        if (isset($data['tt_content'][$id]['colPos'])
-                            && (int)$currentRecord['colPos'] !== (int)$data['tt_content'][$id]['colPos']
-                        ) {
+                    if ((GeneralUtility::makeInstance(Typo3Version::class))->getMajorVersion() < 13) {
+                        // New colPos is passed as datamap array and already processed in processDatamap_beforeStart
+                        $data = isset($dataHandler->datamap['tt_content'][$id])
+                            ? $dataHandler->datamap : GeneralUtility::_GP('data');
+                        if (isset($data['tt_content'][$id])) {
+                            if (isset($data['tt_content'][$id]['colPos'])
+                                && (int)$currentRecord['colPos'] !== (int)$data['tt_content'][$id]['colPos']
+                            ) {
+                                unset($dataHandler->cmdmap['tt_content'][$id]);
+                            }
+                            // No further processing needed
+                            continue;
+                        }
+                    } else {
+                        if ((int)$value['update']['colPos'] !== (int)$currentRecord['colPos']) {
                             unset($dataHandler->cmdmap['tt_content'][$id]);
+                            $flashMessageService = GeneralUtility::makeInstance(FlashMessageService::class);
+                            $flashMessageService->getMessageQueueByIdentifier()->addMessage(
+                                new FlashMessage(
+                                    'Cannot move content to different colPos',
+                                    'Error',
+                                    ContextualFeedbackSeverity::ERROR,
+                                )
+                            );
                         }
                         // No further processing needed
                         continue;
@@ -127,9 +147,7 @@ class CmdmapDataHandlerHook extends AbstractDataHandlerHook
             }
         }
 
-        if (count($cmdmap['tt_content']) !== count($dataHandler->cmdmap['tt_content'])
-            && empty(GeneralUtility::_GP('prErr'))
-        ) {
+        if (count($cmdmap['tt_content']) !== count($dataHandler->cmdmap['tt_content'])) {
             $dataHandler->printLogErrorMessages();
         }
     }
